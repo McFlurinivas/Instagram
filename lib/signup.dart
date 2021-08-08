@@ -48,7 +48,8 @@ class _signupState extends State<signup> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(elevation: 0),
+      appBar: AppBar(elevation: 0,
+      automaticallyImplyLeading: false),
       body: SingleChildScrollView(
         child: Center(
           child: Column(
@@ -145,20 +146,6 @@ class _signupState extends State<signup> {
                               error!,
                               style: TextStyle(color: Colors.red),
                             ),
-                          SizedBox(height: 15),
-                          Row(children: [
-                            Spacer(),
-                            Container(
-                              padding: EdgeInsets.fromLTRB(100, 0, 30, 0),
-                              child: Text(
-                                "Forgot Password?",
-                                textAlign: TextAlign.right,
-                                style: TextStyle(
-                                  color: Colors.blue,
-                                ),
-                              ),
-                            ),
-                          ]),
                           SizedBox(height: 30),
                           FlatButton(
                               height: 50,

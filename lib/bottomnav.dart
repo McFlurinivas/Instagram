@@ -1,11 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:eva_icons_flutter/eva_icons_flutter.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:insta_demo/main.dart';
 import 'package:insta_demo/Home.dart';
 import 'package:insta_demo/search.dart';
 import 'package:insta_demo/profile.dart';
 import 'package:insta_demo/activity.dart';
+import 'package:insta_demo/addPost.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class NavBottom extends StatefulWidget {
   const NavBottom({Key? key}) : super(key: key);
@@ -30,6 +32,10 @@ class _NavBottomState extends State<NavBottom> {
         body = Search();
         break;
 
+      case 2:
+        body = posts();
+        break;
+
       case 3:
         body = activity();
         break;
@@ -41,6 +47,25 @@ class _NavBottomState extends State<NavBottom> {
       default:
         body = null;
         break;
+    }
+
+    final auth = FirebaseAuth.instance;
+    final firestoreInstance = FirebaseFirestore.instance;
+    String _dp = '';
+    Future<void> getDocument() async {
+      var documentSnapshot = await firestoreInstance
+          .collection('users')
+          .doc(auth.currentUser!.uid)
+          .get();
+      setState(() {
+        _dp = documentSnapshot.get('profilepic');
+      });
+    }
+
+    @override
+    void initState() {
+      super.initState();
+      getDocument();
     }
 
     return Scaffold(
@@ -62,8 +87,7 @@ class _NavBottomState extends State<NavBottom> {
           BottomNavigationBarItem(
               icon: InkWell(
                 child: CircleAvatar(
-                  backgroundImage: NetworkImage(
-                      'https://uifaces.co/our-content/donated/3799Ffxy.jpeg'),
+                  backgroundImage: (_dp.isNotEmpty)?NetworkImage(_dp):null,
                   radius: 15,
                 ),
               ),

@@ -3,13 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:insta_demo/editProfile.dart';
-import 'package:insta_demo/main.dart';
-
 import 'DisplayingPostSearch.dart';
 
 class profile extends StatefulWidget {
-  const profile({Key? key}) : super(key: key);
+  final String user;
+
+  const profile({Key? key, required this.user}) : super(key: key);
 
   @override
   _profileState createState() => _profileState();
@@ -23,13 +22,14 @@ class _profileState extends State<profile> {
   final TextEditingController _email = TextEditingController();
   String dp = '';
   String uid = '';
+  bool following = false;
 
   Future<void> getDocument() async {
-    var documentSnapshot = await firestoreInstance
-        .collection('users')
-        .doc(auth.currentUser!.uid)
-        .get();
+    var documentSnapshot =
+        await firestoreInstance.collection('users').doc(widget.user).get();
+    var follow = await isFollowing();
     setState(() {
+      following = follow;
       uid = documentSnapshot.id;
       _username.text = documentSnapshot.get('username');
       _bio.text = documentSnapshot.get('bio');
@@ -44,32 +44,20 @@ class _profileState extends State<profile> {
     getDocument();
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         elevation: 0,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
         title: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-          Icon(Icons.lock),
           Text(
             _username.text,
             style: TextStyle(color: Colors.black),
-          ),
-          Icon(Icons.keyboard_arrow_down),
+          )
         ]),
         centerTitle: true,
-        actions: <Widget>[
-          IconButton(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
-                Navigator.pushReplacement(
-                    context, MaterialPageRoute(builder: (context) => MyApp()));
-              },
-              icon: Icon(Icons.logout))
-        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,13 +90,13 @@ class _profileState extends State<profile> {
                       int length = snapshot.data!.size;
                       return Expanded(
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(length.toString(),
-                                  style: TextStyle(fontSize: 20)),
-                              Text('Followers', style: TextStyle(fontSize: 15))
-                            ],
-                          ));
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(length.toString(),
+                              style: TextStyle(fontSize: 20)),
+                          Text('Followers', style: TextStyle(fontSize: 15))
+                        ],
+                      ));
                     } else {
                       return CircularProgressIndicator();
                     }
@@ -171,25 +159,67 @@ class _profileState extends State<profile> {
           ),
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: FlatButton(
-                minWidth: 1000,
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => editprofile()),
-                  );
-                },
-                child: Text(
-                  'Edit Profile',
-                  style: TextStyle(color: Colors.black, fontSize: 15),
-                  textAlign: TextAlign.center,
+            child: Row(
+              children: [
+                Expanded(
+                  child: FlatButton(
+                      onPressed: () async {
+                        if (await isFollowing()) {
+                          final querySnapshot = await firestoreInstance
+                              .collection('followers')
+                              .where('following',
+                                  isEqualTo: uid)
+                              .where('follower', isEqualTo: FirebaseAuth.instance.currentUser!.uid)
+                              .get();
+                          final documentId = querySnapshot.docs[0].id;
+                          await firestoreInstance
+                              .collection('followers')
+                              .doc(documentId)
+                              .delete();
+                        } else {
+                          await firestoreInstance.collection('followers').add({
+                            'follower': FirebaseAuth.instance.currentUser!.uid,
+                            'following': uid
+                          });
+                        }
+                        setState(() {
+                          following = !following;
+                        });
+                      },
+                      child: Text(
+                        (following == true) ? 'Unfollow' : 'Follow',
+                        style: TextStyle(color: Colors.white, fontSize: 15),
+                        textAlign: TextAlign.center,
+                      ),
+                      color: Colors.lightBlue,
+                      shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: Colors.white,
+                              width: 1,
+                              style: BorderStyle.solid),
+                          borderRadius: BorderRadius.circular(10))),
                 ),
-                shape: RoundedRectangleBorder(
-                    side: BorderSide(
-                        color: Colors.black,
-                        width: 1,
-                        style: BorderStyle.solid),
-                    borderRadius: BorderRadius.circular(5))),
+                SizedBox(
+                  width: 10,
+                ),
+                Expanded(
+                  child: FlatButton(
+                      onPressed: () {},
+                      child: Text(
+                        'Message',
+                        style: TextStyle(color: Colors.black, fontSize: 15),
+                        textAlign: TextAlign.center,
+                      ),
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          side: BorderSide(
+                              color: Colors.black,
+                              width: 1,
+                              style: BorderStyle.solid),
+                          borderRadius: BorderRadius.circular(10))),
+                ),
+              ],
+            ),
           ),
           SizedBox(
             height: 10,
@@ -197,7 +227,10 @@ class _profileState extends State<profile> {
           Divider(height: 0),
           Expanded(
               child: StreamBuilder<QuerySnapshot>(
-                  stream: firestoreInstance.collection('post').where('username', isEqualTo: _username.text).snapshots(),
+                  stream: firestoreInstance
+                      .collection('post')
+                      .where('uid', isEqualTo: widget.user)
+                      .snapshots(),
                   builder: (BuildContext context,
                       AsyncSnapshot<QuerySnapshot> snapshot) {
                     if (snapshot.hasData) {
@@ -220,5 +253,14 @@ class _profileState extends State<profile> {
         ],
       ),
     );
+  }
+
+  Future<bool> isFollowing() async {
+    final snapshot = await firestoreInstance
+        .collection('followers')
+        .where('following', isEqualTo: uid)
+        .where('follower', isEqualTo: FirebaseAuth.instance.currentUser!.uid)
+        .get();
+    return snapshot.size == 1;
   }
 }
